@@ -23,12 +23,12 @@
 // Download glut from: http://www.opengl.org/resources/libraries/glut/
 #include <GLUT/glut.h>
 
-
 bool pPressed = false;
 bool bPressed = false;
 bool aPressed = false;
 bool dPressed = false;
 bool lPressed = false;
+bool nonePressed = true;
 float t = 0;
 
 
@@ -60,6 +60,7 @@ protected:
     std::vector<float2> controlPoints;
 public:
     bool selected = false;
+    bool isPolyLine = false;
     virtual float2 getPoint(float t)=0;
     virtual void addControlPoint(float2 p)
     {
@@ -187,7 +188,7 @@ class Largrange : public Freeform
         controlPoints.push_back(p);
         int knotSize = knots.size();
         knots.clear();
-        for(int j=0; j<knotSize); j++){
+        for(int j=0; j<knotSize; j++){
             knots.push_back(j / controlPoints.size()-1);
         }
         knots.push_back(1);
@@ -238,7 +239,7 @@ public:
         curves.erase(curves.begin()+index);
     }
     
-
+    
 };
 
 CurveScene scene = *new CurveScene();
@@ -253,8 +254,8 @@ void onDisplay(){
     GLfloat lineWidth;
     GLfloat widthSizes[2];
     
-    widthSizes[0] = 10;
-    widthSizes[1] = 20;
+    widthSizes[0] = 10.0f;
+    widthSizes[1] = 20.0f;
     glGetFloatv(GL_LINE_WIDTH_RANGE, widthSizes);
     
     lineWidth = widthSizes[1];
@@ -277,7 +278,7 @@ void onDisplay(){
     
     
     glutSwapBuffers();
-
+    
     
 }
 
@@ -307,52 +308,70 @@ void deselectPreviouslySelected(){
 //Add a new instance of a curve every time a key is hit
 void onKeyboard(unsigned char key,int x, int y) {
     
-    
-    if (key == 'p' && pPressed == false) {
-        Polyline *pLine = new Polyline;
-        scene.addCurve(pLine);
-        pPressed = true;
-    }
-    
-    if (key == 'a' && aPressed == false) {
-        aPressed = true;
-    }
-    
-    if (key == 'd' && dPressed == false) {
-        dPressed = true;
-    }
-    
-    if (key == 'l' && lPressed == false) {
-        Largrange *lCurve = new Largrange;
-        lCurve->selected = true;
-        scene.addCurve(lCurve);
-        lPressed = true;
-    }
+    switch (key) {
+        case 'p':{
+            if(pPressed == false){
+                Polyline *pLine = new Polyline;
+                pLine->selected = true;
+                pLine->isPolyLine = true;
+                scene.addCurve(pLine);
+                pPressed = true;
+                nonePressed = false;
+            }
+            break;
+        }
+        case 'a':{
+            aPressed = true;
+            nonePressed = false;
+            break;
+        }
+        case 'd':{
+            dPressed = true;
+            nonePressed = false;
+            break;
 
-    
-    if (key == 'b' && bPressed == false) {
-        BezierCurve *bCurve = new BezierCurve;
-        bCurve->selected = true;
-        scene.addCurve(bCurve);
-        bPressed = true;
-    }
-    
-    
-
-    if (key == ' ') {
-        int indexSelected = indexCurveSelected();
-        if(indexSelected == -1){
-            indexSelected++;
         }
-        int nextIndex = indexSelected + 1;
-        if(nextIndex != curves.size()){
-            curves.at(indexSelected)->selected = false;
-            curves.at(nextIndex)->selected = true;
+        case 'l':{
+            if (lPressed == false) {
+                Largrange *lCurve = new Largrange;
+                lCurve->selected = true;
+                scene.addCurve(lCurve);
+                lPressed = true;
+                nonePressed = false;
+            }
+            break;
         }
-        else{
-            curves.at(0)->selected = true;
-            curves.at(indexSelected)->selected = false;
+        case 'b':{
+            if(bPressed == false){
+                BezierCurve *bCurve = new BezierCurve;
+                bCurve->selected = true;
+                scene.addCurve(bCurve);
+                bPressed = true;
+                nonePressed = false;
+            }
+            break;
         }
+        case ' ':{
+            if(curves.size() > 0){
+                int indexSelected = indexCurveSelected();
+                if(indexSelected == -1){
+                    indexSelected++;
+                }
+                int nextIndex = indexSelected + 1;
+                if(nextIndex != curves.size()){
+                    curves.at(indexSelected)->selected = false;
+                    curves.at(nextIndex)->selected = true;
+                }
+                else{
+                    curves.at(0)->selected = true;
+                    curves.at(indexSelected)->selected = false;
+                }
+            }
+        
+            break;
+        }
+        default:
+            break;
     }
 }
 
@@ -370,42 +389,93 @@ void checkIfEnoughPoints(){
 void onKeyboardUp(unsigned char key, int x, int y) {
     if (key == 'p') {
         pPressed = false;
+        nonePressed = true;
         curves.at(curves.size()-1)->selected = false;
     }
     if (key == 'a') {
         aPressed = false;
+        nonePressed = true;
         
     }
     if (key == 'd') {
         dPressed = false;
+        nonePressed = true;
     }
     
     if (key == 'l') {
         lPressed = false;
+        nonePressed = true;
         curves.at(curves.size()-1)->selected = false;
     }
     if (key == 'b') {
         bPressed = false;
+        nonePressed = true;
         curves.at(curves.size()-1)->selected = false;
     }
     checkIfEnoughPoints();
 }
 
 
-Freeform *closestCurveToMouse(float2 click){
-    
-    
-    
+Freeform *closestCurveForPoly(float2 click, Freeform *curve){
     Freeform *closest = nullptr;
+    for (int i=0; i<curve->getCPoints().size()-1; i++) {
+        float crossProduct = ((click.y - curve->getCPoints().at(i).y) *
+                              (curve->getCPoints().at(i+1).x - curve->getCPoints().at(i).x))
+                                - ((click.x - curve->getCPoints().at(i).x) *
+                                   (curve->getCPoints().at(i+1).y - curve->getCPoints().at(i).y));
+        if(abs(crossProduct) > 0.5){
+            printf("not aligned! \n");
+            return closest;
+        }
+        
+        float dotProduct = ((click.x - curve->getCPoints().at(i).x) *
+                            (curve->getCPoints().at(i+1).x - curve->getCPoints().at(i).x))
+                            + ((click.y - curve->getCPoints().at(i).y) *
+                               (curve->getCPoints().at(i+1).y - curve->getCPoints().at(i).y));
+        if (dotProduct < 0) {
+            printf("dot product was 0! \n");
+            return closest;
+        }
+        
+        float squaredLengthBA = ((curve->getCPoints().at(i+1).x - curve->getCPoints().at(i).x) *
+                                 (curve->getCPoints().at(i+1).x) - curve->getCPoints().at(i).x)
+                                + ((curve->getCPoints().at(i+1).y - curve->getCPoints().at(i).y) *
+                                   (curve->getCPoints().at(i+1).y - curve->getCPoints().at(i).y));
+        if(dotProduct > squaredLengthBA){
+            printf("Dot product greater than length \n");
+            return closest;
+        }
+        
+    }
     
+    closest = curve;
+    
+    return closest;
+}
+
+Freeform *closestCurveToMouse(float2 click){
+    Freeform *closest = nullptr;
     for (int i=0; i<curves.size(); i++) {
-        for(float p=0; p < 1; p+=.01 ){
-            if(((fabs(click.x - curves.at(i)->getPoint(p).x)) < 0.09f) &&
-               ((fabs(click.y - curves.at(i)->getPoint(p).y)) < 0.09f))
-            {
-                closest = curves.at(i);
+        if(closest != nullptr){
+            break;
+        }
+        if(curves.at(i)->isPolyLine){
+            closest = closestCurveForPoly(click, curves.at(i));
+            if(closest != nullptr){
                 break;
             }
+            
+        }
+        else{
+            for(float p=0; p < 1; p+=.01 ){
+                if(((fabs(click.x - curves.at(i)->getPoint(p).x)) < 0.09f) &&
+                   ((fabs(click.y - curves.at(i)->getPoint(p).y)) < 0.09f))
+                {
+                    closest = curves.at(i);
+                    break;
+                }
+            }
+
         }
     }
     return closest;
@@ -422,9 +492,9 @@ float2 *closestControlPoint(float2 click){
                 closest = &curve->getCPoints().at(i);
             }
         }
-
+        
     }
-        return closest;
+    return closest;
     
 }
 
@@ -432,32 +502,28 @@ float2 *closestControlPoint(float2 click){
 //if MOUSE/key is pressed, then drag and drop
 //when click mouse, you register that position --> determie the difference vector betweeen the click, and the current mouse, and add that
 //difference vector to the control points of the curve
-    //be sure to call postdispley in move function, to ensure smooth move
+//be sure to call postdispley in move function, to ensure smooth move
 //calculate difference vector --> add the difference vector to the control point
 
 void onMouse(int button, int state, int x, int y) {
-        int viewportRect[4];
-        glGetIntegerv(GL_VIEWPORT, viewportRect);
+    int viewportRect[4];
+    glGetIntegerv(GL_VIEWPORT, viewportRect);
     
-        
+    if(!nonePressed){
         if (pPressed) {
             if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
                 curves.at(curves.size()-1)->addControlPoint(float2(x * 2.0 / viewportRect[2] - 1.0,
-                                                    -y * 2.0 / viewportRect[3] + 1.0));
-        
+                                                                   -y * 2.0 / viewportRect[3] + 1.0));
         }
-    
         if(dPressed){
             if(button == GLUT_LEFT_BUTTON && state == GLUT_DOWN && curves.size()>0){
-                printf("entered D");
                 float2 *closestCPoint = closestControlPoint(float2(
-                                                            x * 2.0 / viewportRect[2] - 1.0,
-                                                           -y * 2.0 / viewportRect[3] + 1.0));
-
-                printf("after D");
+                                                                   x * 2.0 / viewportRect[2] - 1.0,
+                                                                   -y * 2.0 / viewportRect[3] + 1.0));
+                
                 Freeform *closestCurve = closestCurveToMouse((float2(
-                                                            x * 2.0 / viewportRect[2] - 1.0,
-                                                            -y * 2.0 / viewportRect[3] + 1.0)));
+                                                                     x * 2.0 / viewportRect[2] - 1.0,
+                                                                     -y * 2.0 / viewportRect[3] + 1.0)));
                 if(closestCPoint != nullptr && closestCurve != nullptr){
                     for(int i=0; i<closestCurve->getCPoints().size(); i++){
                         if((closestCurve->getCPoints().at(i).x == closestCPoint->x) &&
@@ -468,43 +534,42 @@ void onMouse(int button, int state, int x, int y) {
                     }
                     checkIfEnoughPoints();
                 }
+            }
+        }
+        if(lPressed){
+            if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN){
+                curves.at(curves.size()-1)->addControlPoint( float2(
+                                                                    x * 2.0 / viewportRect[2] - 1.0,
+                                                                    -y * 2.0 / viewportRect[3] + 1.0));
+                //            glutPostRedisplay();
                 
                 
             }
-        }
-    if(lPressed){
-        if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN){
-            curves.at(curves.size()-1)->addControlPoint( float2(
-                                                                x * 2.0 / viewportRect[2] - 1.0,
-                                                                -y * 2.0 / viewportRect[3] + 1.0));
-//            glutPostRedisplay();
-
             
         }
-
-    }
-    
+        
         if(bPressed){
             if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN){
                 curves.at(curves.size()-1)->addControlPoint( float2(
-                                                                x * 2.0 / viewportRect[2] - 1.0,
-                                                                -y * 2.0 / viewportRect[3] + 1.0));
-
+                                                                    x * 2.0 / viewportRect[2] - 1.0,
+                                                                    -y * 2.0 / viewportRect[3] + 1.0));
+                
             }
-        }else
-    
+        }
         if(aPressed){
             if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN){
                 if(indexCurveSelected() != -1)
                     curves.at(indexCurveSelected())->addControlPoint( float2(
-                                                                x * 2.0 / viewportRect[2] - 1.0,
-                                                                -y * 2.0 / viewportRect[3] + 1.0));
-            
+                                                                             x * 2.0 / viewportRect[2] - 1.0,
+                                                                             -y * 2.0 / viewportRect[3] + 1.0));
+                
             }
-
-        }else
             
-            if(button == GLUT_LEFT_BUTTON && state == GLUT_DOWN && curves.size()>0){
+
+        }
+        
+    }else
+        if(button == GLUT_LEFT_BUTTON && state == GLUT_DOWN && curves.size()>0){
                 Freeform *closest = closestCurveToMouse(float2(
                                                                x * 2.0 / viewportRect[2] - 1.0,
                                                                -y * 2.0 / viewportRect[3] + 1.0));
@@ -513,11 +578,8 @@ void onMouse(int button, int state, int x, int y) {
                     closest->selected = true;
             }
     
-    
-        glutPostRedisplay();
+    glutPostRedisplay();
 }
-
-                           
 
 
 
@@ -548,7 +610,7 @@ int main(int argc, char *argv[]) {
     
     
     
-
+    
     
     
     glutMainLoop();

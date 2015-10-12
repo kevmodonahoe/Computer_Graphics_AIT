@@ -31,7 +31,8 @@ bool lPressed = false;
 bool nonePressed = true;
 float t = 0;
 
-
+int clickX = 0;
+int clickY = 0;
 
 class Curve {
 public:
@@ -53,7 +54,6 @@ public:
 
 
 
-
 class Freeform : public Curve
 {
 protected:
@@ -61,16 +61,23 @@ protected:
 public:
     bool selected = false;
     bool isPolyLine = false;
+    bool isLagrange = false;
+ 
+    
     virtual float2 getPoint(float t)=0;
     virtual void addControlPoint(float2 p)
     {
         
         controlPoints.push_back(p);
+        controlPoints.at(controlPoints.size()-1).x = p.x;
+        controlPoints.at(controlPoints.size()-1).y = p.y;
+
     }
     
     
     void drawControlPoints(){
         for(int i=0; i<controlPoints.size(); i++){
+            
             glBegin(GL_POINTS);
             float2 point = controlPoints[i];
             glVertex2d(point.x, point.y);
@@ -160,40 +167,59 @@ class Largrange : public Freeform
     //knot weights
     std:: vector<float> knots;
     
-    
     //n is one less than the number of controlpoints
-    double lagranginate(int i, int n, double t) {
+    double lagranginate(int i, double t) {
         
         double numerator = 1;
         double denominator = 1;
         
-        for(int j=0; j<n; j++)
+        for(int j=0; j<controlPoints.size(); j++)
         {
-            numerator *= (t - knots.at(j));
-            denominator *= (knots.at(i) - knots.at(j));
+            
+            
+            if(j != i){
+                numerator *= (t - knots.at(j));
+                denominator *= (knots.at(i) - knots.at(j));
+          
+            }
             
         }
+        
         return numerator / denominator;
     }
     
     public :
+        void addControlPoint(float2 p){
+            controlPoints.push_back(p);
+            int controlPointsSize = controlPoints.size();
+            
+            knots.clear();
+            
+            if(controlPointsSize == 1){
+                knots.push_back(0);
+                return;
+            }
     
-    //have add control points function (effects the behabior of function above)
-    //add point to curve
-    //add element to knot
-    //calculating knot values (and must recalculate knot values everytime you add new one)
-    //call onpostredisplay funtino after you call this function in the code
-    
-    void addControlPoint(float2 p){
-        controlPoints.push_back(p);
-        int knotSize = knots.size();
-        knots.clear();
-        for(int j=0; j<knotSize; j++){
-            knots.push_back(j / controlPoints.size()-1);
+            
+            for(int j=0; j<controlPointsSize; j++){
+                knots.push_back(j / (controlPoints.size()-1.0));
+            }
         }
-        knots.push_back(1);
-    }
     
+    
+        void eraseCP(){
+        
+            knots.clear();
+
+            if(controlPoints.size() == 1){
+                knots.push_back(0);
+                return;
+            }
+        
+            for(int j=0; j<controlPoints.size(); j++){
+                knots.push_back(j / (controlPoints.size()-1.0));
+            }
+        }
     
     float2 getPoint(float t)
     {
@@ -201,11 +227,14 @@ class Largrange : public Freeform
         float weight;
         // for every control point
         for (float i = 0; i < controlPoints.size(); i++) {
-            // compute weight using the Bernstein formula
-            weight = lagranginate(i, controlPoints.size()-1, t);
+            // compute weight using the Lagrange formula
+            weight = lagranginate(i, t);
+            
             r += controlPoints.at(i)*weight;
+
         }
         // add control point to r, weighted
+        
         return r;
     }
 };
@@ -230,7 +259,7 @@ public:
     void draw() {
         for(unsigned int i=0; i<curves.size(); i++){
             if(curves.at(i)->selected == false){
-                curves.at(i)->draw();
+                    curves.at(i)->draw();
             }
         }
     }
@@ -335,6 +364,7 @@ void onKeyboard(unsigned char key,int x, int y) {
             if (lPressed == false) {
                 Largrange *lCurve = new Largrange;
                 lCurve->selected = true;
+                lCurve->isLagrange = true;
                 scene.addCurve(lCurve);
                 lPressed = true;
                 nonePressed = false;
@@ -447,7 +477,7 @@ Freeform *closestCurveForPoly(float2 click, Freeform *curve){
         }
         
     }
-    
+    	
     closest = curve;
     
     return closest;
@@ -482,6 +512,12 @@ Freeform *closestCurveToMouse(float2 click){
 }
 
 
+//distrance from the line
+    //sin of angle
+    //length of the cross product (normalize vector of the line * (r - r0) )
+
+
+//if dot product is negative, then it's outside (two cases)
 
 float2 *closestControlPoint(float2 click){
     float2 *closest = nullptr;
@@ -498,6 +534,8 @@ float2 *closestControlPoint(float2 click){
     
 }
 
+
+
 //onMove --> callback function called whenever move the mouse
 //if MOUSE/key is pressed, then drag and drop
 //when click mouse, you register that position --> determie the difference vector betweeen the click, and the current mouse, and add that
@@ -508,6 +546,9 @@ float2 *closestControlPoint(float2 click){
 void onMouse(int button, int state, int x, int y) {
     int viewportRect[4];
     glGetIntegerv(GL_VIEWPORT, viewportRect);
+    
+    int clickX = x * 2.0 / viewportRect[2] - 1.0;
+    int clickY = -y * 2.0 / viewportRect[3] + 1.0;
     
     if(!nonePressed){
         if (pPressed) {
@@ -529,6 +570,10 @@ void onMouse(int button, int state, int x, int y) {
                         if((closestCurve->getCPoints().at(i).x == closestCPoint->x) &&
                            (closestCurve->getCPoints().at(i).y == closestCPoint->y)){
                             closestCurve->deleteCPoint(i);
+                            if(closestCurve->isLagrange){
+                                Largrange *lcurve = (Largrange*) closestCurve;
+                                lcurve->eraseCP();
+                            }
                             break;
                         }
                     }
@@ -541,7 +586,7 @@ void onMouse(int button, int state, int x, int y) {
                 curves.at(curves.size()-1)->addControlPoint( float2(
                                                                     x * 2.0 / viewportRect[2] - 1.0,
                                                                     -y * 2.0 / viewportRect[3] + 1.0));
-                //            glutPostRedisplay();
+//                            glutPostRedisplay();
                 
                 
             }
@@ -582,6 +627,39 @@ void onMouse(int button, int state, int x, int y) {
 }
 
 
+void onMove(int x, int y){
+    
+    int viewportRect[4];
+    glGetIntegerv(GL_VIEWPORT, viewportRect);
+    
+
+    
+    
+    for (int i=0; i<curves.size(); i++) {
+            if(curves.at(i)->selected){
+//                float2 *cpoint = *closestControlPoint(float2(clickX,
+//
+//                clickY));
+                
+                Freeform *curve = curves.at(i);
+                int oldX = curve->getCPoints().at(0).x;
+                int oldY = curve->getCPoints().at(0).y;
+                
+                int dx = oldX - x;
+                int dy = oldY - y;
+    
+                curve->getCPoints().at(0).x = oldX - dx;
+                curve->getCPoints().at(0).y = oldY- dy;
+    
+    
+    
+            }
+        }
+
+    
+    
+    
+}
 
 
 void onIdle() {
@@ -607,6 +685,7 @@ int main(int argc, char *argv[]) {
     glutDisplayFunc(onDisplay); // Register event handlers
     glutKeyboardUpFunc(onKeyboardUp);
     glutMouseFunc(onMouse);
+    glutMotionFunc(onMove);
     
     
     

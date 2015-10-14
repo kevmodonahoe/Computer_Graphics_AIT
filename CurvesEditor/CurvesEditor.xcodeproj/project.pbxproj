@@ -10,7 +10,6 @@
 		7991F74F1BC31EEA00E3DECB /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7991F74E1BC31EEA00E3DECB /* main.cpp */; };
 		7991F7561BC31EF400E3DECB /* GLUT.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7991F7551BC31EF400E3DECB /* GLUT.framework */; };
 		7991F7581BC31EF800E3DECB /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7991F7571BC31EF800E3DECB /* OpenGL.framework */; };
-		7991F75C1BC3203800E3DECB /* curves.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7991F75A1BC3203800E3DECB /* curves.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -31,8 +30,6 @@
 		7991F7551BC31EF400E3DECB /* GLUT.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLUT.framework; path = System/Library/Frameworks/GLUT.framework; sourceTree = SDKROOT; };
 		7991F7571BC31EF800E3DECB /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 		7991F7591BC31F1900E3DECB /* float2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = float2.h; sourceTree = "<group>"; };
-		7991F75A1BC3203800E3DECB /* curves.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = curves.cpp; sourceTree = "<group>"; };
-		7991F75B1BC3203800E3DECB /* curves.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = curves.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -71,8 +68,6 @@
 			children = (
 				7991F74E1BC31EEA00E3DECB /* main.cpp */,
 				7991F7591BC31F1900E3DECB /* float2.h */,
-				7991F75A1BC3203800E3DECB /* curves.cpp */,
-				7991F75B1BC3203800E3DECB /* curves.h */,
 			);
 			path = CurvesEditor;
 			sourceTree = "<group>";
@@ -134,7 +129,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				7991F74F1BC31EEA00E3DECB /* main.cpp in Sources */,
-				7991F75C1BC3203800E3DECB /* curves.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -248,6 +242,7 @@
 				7991F7541BC31EEA00E3DECB /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

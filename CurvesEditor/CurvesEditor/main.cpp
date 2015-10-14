@@ -31,8 +31,8 @@ bool lPressed = false;
 bool nonePressed = true;
 float t = 0;
 
-int clickX = 0;
-int clickY = 0;
+//int clickX = 0;
+//int clickY = 0;
 
 class Curve {
 public:
@@ -333,6 +333,15 @@ void deselectPreviouslySelected(){
 }
 
 
+//bool isMouseClicked(int button, int state, int x, int y){
+//    
+//    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN){
+//        return true;
+//    }
+//    return false;
+//    
+//}
+
 
 //Add a new instance of a curve every time a key is hit
 void onKeyboard(unsigned char key,int x, int y) {
@@ -446,40 +455,44 @@ void onKeyboardUp(unsigned char key, int x, int y) {
 }
 
 
+
+
+//distrance from the line
+//sin of angle
+//length of the cross product (normalize vector of the line * (r - r0) )
+//if dot product is negative, then it's outside (two cases)
 Freeform *closestCurveForPoly(float2 click, Freeform *curve){
     Freeform *closest = nullptr;
     for (int i=0; i<curve->getCPoints().size()-1; i++) {
-        float crossProduct = ((click.y - curve->getCPoints().at(i).y) *
-                              (curve->getCPoints().at(i+1).x - curve->getCPoints().at(i).x))
-                                - ((click.x - curve->getCPoints().at(i).x) *
-                                   (curve->getCPoints().at(i+1).y - curve->getCPoints().at(i).y));
-        if(abs(crossProduct) > 0.5){
-            printf("not aligned! \n");
-            return closest;
-        }
+        float2 cp1 = curve->getCPoints().at(i);
+        float2 cp2 = curve->getCPoints().at(i+1);
         
-        float dotProduct = ((click.x - curve->getCPoints().at(i).x) *
-                            (curve->getCPoints().at(i+1).x - curve->getCPoints().at(i).x))
+        float2 firstLine = click - cp1;
+        
+        float2 secondLine = cp2 - cp1;
+        
+        float2 tempSecondLine = secondLine;
+        
+        secondLine.normalize();
+        
+        float crossProduct = (firstLine.x * secondLine.y - firstLine.y * secondLine.x);
+        
+        float dotProduct =  ((click.x - curve->getCPoints().at(i).x) *
+                             (curve->getCPoints().at(i+1).x - curve->getCPoints().at(i).x))
                             + ((click.y - curve->getCPoints().at(i).y) *
-                               (curve->getCPoints().at(i+1).y - curve->getCPoints().at(i).y));
-        if (dotProduct < 0) {
-            printf("dot product was 0! \n");
-            return closest;
-        }
+                            (curve->getCPoints().at(i+1).y - curve->getCPoints().at(i).y));
         
-        float squaredLengthBA = ((curve->getCPoints().at(i+1).x - curve->getCPoints().at(i).x) *
-                                 (curve->getCPoints().at(i+1).x) - curve->getCPoints().at(i).x)
-                                + ((curve->getCPoints().at(i+1).y - curve->getCPoints().at(i).y) *
-                                   (curve->getCPoints().at(i+1).y - curve->getCPoints().at(i).y));
-        if(dotProduct > squaredLengthBA){
-            printf("Dot product greater than length \n");
-            return closest;
-        }
         
+        if((fabs(crossProduct) < 0.05f) && (dotProduct > 0.0f)){
+            
+            if(fabs(firstLine.y) > fabs(tempSecondLine.y) || (fabs(firstLine.x) > fabs(tempSecondLine.x))){
+                continue;
+            }
+
+            closest = curve;
+            break;
+        }
     }
-    	
-    closest = curve;
-    
     return closest;
 }
 
@@ -508,16 +521,11 @@ Freeform *closestCurveToMouse(float2 click){
 
         }
     }
+    
     return closest;
 }
 
 
-//distrance from the line
-    //sin of angle
-    //length of the cross product (normalize vector of the line * (r - r0) )
-
-
-//if dot product is negative, then it's outside (two cases)
 
 float2 *closestControlPoint(float2 click){
     float2 *closest = nullptr;
@@ -530,6 +538,7 @@ float2 *closestControlPoint(float2 click){
         }
         
     }
+    
     return closest;
     
 }
@@ -547,9 +556,10 @@ void onMouse(int button, int state, int x, int y) {
     int viewportRect[4];
     glGetIntegerv(GL_VIEWPORT, viewportRect);
     
-    int clickX = x * 2.0 / viewportRect[2] - 1.0;
-    int clickY = -y * 2.0 / viewportRect[3] + 1.0;
-    
+//    int clickX = x * 2.0 / viewportRect[2] - 1.0;
+//    int clickY = -y * 2.0 / viewportRect[3] + 1.0;
+//    
+//    
     if(!nonePressed){
         if (pPressed) {
             if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
@@ -586,8 +596,6 @@ void onMouse(int button, int state, int x, int y) {
                 curves.at(curves.size()-1)->addControlPoint( float2(
                                                                     x * 2.0 / viewportRect[2] - 1.0,
                                                                     -y * 2.0 / viewportRect[3] + 1.0));
-//                            glutPostRedisplay();
-                
                 
             }
             
@@ -626,38 +634,50 @@ void onMouse(int button, int state, int x, int y) {
     glutPostRedisplay();
 }
 
+void movePoint(int mouseX, int mouseY, int index, Freeform *curve){
+    curve->getCPoints().at(index).x = mouseX;
+    curve->getCPoints().at(index).y = mouseY;
+    
+    
+}
+
 
 void onMove(int x, int y){
+    
     
     int viewportRect[4];
     glGetIntegerv(GL_VIEWPORT, viewportRect);
     
-
+    float mouseX = x * 2.0 / viewportRect[2] - 1.0;
+    float mouseY = -y * 2.0 / viewportRect[3] + 1.0;
     
+    float2 click = float2(mouseX, mouseY);
+    int index = -1;
     
-    for (int i=0; i<curves.size(); i++) {
-            if(curves.at(i)->selected){
-//                float2 *cpoint = *closestControlPoint(float2(clickX,
-//
-//                clickY));
+    Freeform *curve = closestCurveToMouse(click);
+    
+    if(curve != nullptr){
+        for(int i=0; i<curve->numControlPoints(); i++){
+            if((fabs(click.x - curve->getCPoints().at(i).x) < 0.09f) && (fabs(click.y - curve->getCPoints().at(i).y) < 0.09f)){
                 
-                Freeform *curve = curves.at(i);
-                int oldX = curve->getCPoints().at(0).x;
-                int oldY = curve->getCPoints().at(0).y;
-                
-                int dx = oldX - x;
-                int dy = oldY - y;
-    
-                curve->getCPoints().at(0).x = oldX - dx;
-                curve->getCPoints().at(0).y = oldY- dy;
-    
-    
-    
+                index = i;
+                break;
             }
         }
+    }
+    
+    if(index != -1){
+//        movePoint(mouseX, mouseY, index, curve);
+        
+        curve->getCPoints().at(index).x = mouseX;
+        curve->getCPoints().at(index).y = mouseX;
+//        printf("%s %f %f \n", "x and y after move:", curve->getCPoints().at(index).x, curve->getCPoints().at(index).y);
+//        printf("%s %f %f \n", "mouse x and y:", mouseX, mouseY);
+        
+    }
+    
+    glutPostRedisplay();
 
-    
-    
     
 }
 
